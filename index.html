@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <script src="https://code.jquery.com/jquery-3.4.1.js" integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <title>Marker Clustering</title>
+    <style>
+
+      #map {
+        height: 100%;
+        z-index: 1;
+      }
+
+      #map2 {
+        height: 350px;
+        width: 400px;
+      }
+
+      #div1{
+        margin: 0px;
+      }
+
+      #boton{
+        position: absolute;
+        z-index: 2;
+        padding: 10px;
+      }
+
+      #contenedor{
+        position: relative;
+        height: 100%;
+      }
+
+      #modal1{
+        z-index: 3;
+      }
+
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+    </style>
+  </head>
+  <body>
+  
+  <div id="contenedor">
+
+    <div id="boton"><a class="waves-effect waves-light btn" href="#">Agregar coordenadas</a></div>
+
+    <div id="map"></div>
+
+    <form action="#" method="post" id="formulario" name="formulario" enctype = "multipart/form-data">
+
+              <div id="modal1" class="modal">
+                <div class="modal-content">
+                  <h4>Agregar Puntos en el Mapa</h4>
+                  
+                  <div class="row">
+                    <div class="input-field col s6">
+                      <input id="nombre" name="nombre" type="text" class="validate">
+                      <label class="active" for="nombre">Nombre del sitio</label>
+                    </div>
+
+                  <div class="file-field input-field col s6">
+                    <div class="btn">
+                      <span>File</span>
+                      <input id="imagen" name="imagen" type="file" required>
+                    </div>
+                    <div class="file-path-wrapper">
+                      <input class="file-path validate" type="text" placeholder="Sube una imagen del sitio">
+                    </div>
+                  </div>
+
+                  <div id="map2" class="col s6"></div>
+
+                  <div class="input-field col s5">
+                      <input disabled="true" id="coordenadas" name="coordenadas" value=" " type="text" class="validate">
+                      <label class="active" for="coordenadas">Coordenadas</label>
+                    </div>
+
+                  </div>
+
+                </div>
+                <div class="modal-footer">
+                  <button id="subir_datos" class="btn waves-effect waves-green" type="submit">Agregar</button>
+                  <a id="cerrar_modal" href="#!" class="modal-close waves-effect waves-green btn-flat">Cancelar</a>
+                </div>
+            </div>
+            <input hidden="true" id="coordenadas2" name="coordenadas2" value=" " type="text" class="validate">
+    </form>
+
+  </div>
+  
+  <img src="" >
+
+    <script>
+
+      $(document).ready(function(){
+
+        $('.modal').modal({dismissible: false});
+
+        //AJAX QUE APUNTA AL INSERT DE LA BASE DE DATOS------------------------------------------------------------------
+
+        $("#formulario").submit(function(e){
+
+          e.preventDefault();
+          var file_var = document.getElementById("imagen").files[0];
+          var image_name = file_var.name;
+          var image_ext = image_name.split('.').pop().toLowerCase();
+          var image_size = file_var.size;
+
+          if(jQuery.inArray(image_ext,['png', 'jpg', 'jpeg']) == -1){
+
+            alert("Extension invalida");
+
+          }
+
+          if(image_size > 2000000){
+
+            alert("Archivo muy pesado");
+
+          }else{
+
+            $.ajax({
+                url: "tratado_datos.php",
+                type: "POST",
+                data: new FormData(this),
+                contentType: false,
+                cache: false,
+                processData:false,
+                success: function (msg) {
+                  alert(msg);
+                  location.reload();
+                },
+                fail: function(){
+                  alert( "error" );
+              }
+            });
+
+          }
+
+        });
+
+      });
+
+      $("#boton").one("click", function(){
+
+        $('#modal1').modal('open');
+
+        initMap2();
+
+      });
+
+      $("#cerrar_modal").one("click", function(){
+
+        location.reload();
+
+      });
+
+      //MAPA1----------------------------------------------------------------------------------------
+
+      function initMap() {
+
+        var init_location = {lat: 4.6482837, lng: -74.2478938};
+
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 11,
+          center: init_location
+        });
+
+        $.ajax({
+          url: "tratado_datos2.php",
+          type: "GET",
+          dataType: 'json',
+          success: function (msg) {
+
+            alert(msg);
+
+            var cantidad = msg.length;
+
+
+            for (var i = 0; i < cantidad; i++) {
+
+              var split = msg[i]['coordenadas'].split(",");
+              var latitud = split[0].replace('(', '');
+              var longitud = split[1].replace(')', '');
+
+              var label = msg[i]['sitio_nombre'];
+              var imagen = msg[i]['imagen'];
+
+              var content = '<div id="content">'+
+              '<div id="siteNotice">'+
+              '</div>'+
+              '<h1 id="firstHeading" class="firstHeading">'+ label +'</h1>'+
+              '<div id="bodyContent">'+
+              '<img style="height: 300px; width: 300px" src="'+imagen+'">' +
+              '</div>'+
+              '</div>';
+
+              var infowindow = new google.maps.InfoWindow();
+
+              var marker = new google.maps.Marker({
+                position: {lat: parseFloat(latitud), lng: parseFloat(longitud)},
+                map: map,
+                label: label
+              });
+
+              google.maps.event.addListener(marker,'click', (function(marker,content,infowindow){ 
+                  return function() {
+                     infowindow.setContent(content);
+                     infowindow.open(map,marker);
+                  };
+              })(marker,content,infowindow)); 
+                        
+              
+            }
+
+          },
+          fail: function(){
+            alert("error");
+          }
+        });
+          
+
+
+      }
+
+      //MAPA2----------------------------------------------------------------------------------------
+
+      function initMap2() {
+        var init_location = {lat: 4.6482837, lng: -74.2478938};
+
+        var map = new google.maps.Map(document.getElementById('map2'), {
+          zoom: 11,
+          center: init_location
+        });
+
+        map.addListener('click', function(e) {
+          placeMarker(e.latLng, map);
+        });
+
+      }
+
+      function placeMarker(position, map) {
+          var marker = new google.maps.Marker({
+              position: position,
+              map: map
+          });
+          map.panTo(position);
+          $("#map2").css("pointer-events","none");
+          $("#coordenadas").val(position);
+          $("#coordenadas2").val(position);
+
+      }
+                      
+    </script>
+
+    <script src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAfqPlWFb5pd5_boNghN6kfAklblDKUm9E&callback=initMap"></script>
+  </body>
+</html>
